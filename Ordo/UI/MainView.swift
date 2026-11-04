@@ -20,19 +20,36 @@ struct MainView: View {
     var body: some View {
         Group {
             switch controller.mainWindowPage {
-            case .basic: BasicSettingsView(controller: controller)
-            case .features: FeatureSettingsView(controller: controller)
-            case .about: AboutView()
+            case .basic: BasicSettingsView(controller: controller).padding(28)
+            case .features: FeatureSettingsView(controller: controller).padding(28)
+            case .about: Color.clear
             }
         }
-        .padding(28)
         .frame(width: MainWindowBehavior.contentSize.width, height: MainWindowBehavior.contentSize.height)
+        .background {
+            if controller.mainWindowPage == .about {
+                AboutView()
+                    .ignoresSafeArea(.container, edges: .top)
+            }
+        }
         .background(Color(nsColor: .windowBackgroundColor))
         .background(MainWindowConfigurator(controller: controller))
         .toolbarBackground(.hidden, for: .windowToolbar)
+        .modifier(MainWindowTitleVisibility())
         .onAppear {
             controller.refreshPermissions()
             controller.refreshLoginItemStatus()
+        }
+    }
+}
+
+/// 在 SwiftUI 层也移除默认标题，避免材质与外观更新恢复原生标题行。
+private struct MainWindowTitleVisibility: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.toolbar(removing: .title)
+        } else {
+            content
         }
     }
 }
@@ -150,10 +167,6 @@ struct FeatureSettingsView: View {
             }
             Spacer(minLength: 0)
 
-            statusNotice
-                .padding(.horizontal, 14)
-                .frame(height: 48, alignment: .topLeading)
-
             Button("重置快捷键", role: .destructive) {
                 controller.resetGestureSettingsToDefaults()
             }
@@ -169,60 +182,63 @@ struct FeatureSettingsView: View {
         .modifier(ModifierKeyFeedbackObserver(feedback: $keyFeedback))
     }
 
-    private var statusNotice: some View {
-        HStack(alignment: .top, spacing: 10) {
-            if let message = controller.shortcutValidationMessage ?? controller.statusMessage {
-                Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout)
-                    .foregroundStyle(controller.shortcutValidationMessage == nil ? Color.orange : .red)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier(
-                        controller.shortcutValidationMessage == nil ? "ordo.statusMessage" : "ordo.shortcutValidation"
-                    )
-                Spacer(minLength: 0)
-                if controller.shortcutValidationMessage == nil {
-                    Button { controller.clearStatus() } label: { Image(systemName: "xmark") }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("关闭运行提示")
-                        .accessibilityIdentifier("ordo.dismissStatus")
-                }
-            } else {
-                Color.clear.accessibilityHidden(true)
-            }
-        }
-    }
-
 }
 
 struct AboutView: View {
+    @ObservedObject var playback: AboutSketchPlayback = .shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        GeometryReader { geometry in
+            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !playback.isRunning)) { _ in
+                AboutSketchPage(angle: playback.angle(), canvasSize: geometry.size)
+            }
+        }
+        .background(AboutSketchWindowObserver(playback: playback))
+        .onAppear {
+            playback.setReducedMotion(reduceMotion)
+            playback.setPageVisible(true)
+        }
+        .onDisappear { playback.setPageVisible(false) }
+        .onChange(of: reduceMotion) { _, value in playback.setReducedMotion(value) }
+    }
+}
+
+/// 静态构图与播放生命周期分离，便于固定角度的布局和主题验收。
+struct AboutSketchPage: View {
+    let angle: Double
+    var canvasSize = MainWindowBehavior.contentSize
+    @Environment(\.colorScheme) private var colorScheme
     private let bundle = Bundle.main
     private let projectURL = URL(string: "https://github.com/vo1dGhost/Ordo")!
 
     var body: some View {
-        VStack(spacing: 14) {
-            Image(nsImage: NSApplication.shared.applicationIconImage)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 96, height: 96)
-                .accessibilityLabel("Ordo App 图标")
+        ZStack {
+            AboutSketchDrawing(angle: angle)
+            VStack(spacing: 14) {
+                Text("Ordo")
+                    .font(.system(size: 26, weight: .semibold))
+                Text(versionText)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("ordo.about.version")
 
-            Text("Ordo")
-                .font(.system(size: 26, weight: .semibold))
-            Text(versionText)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("ordo.about.version")
+                Link(destination: projectURL) {
+                    Text("GitHub 项目")
+                        .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
+                }
+                    .ordoGlassButton()
+                    .padding(.top, 8)
+                    .help(projectURL.absoluteString)
+                    .accessibilityIdentifier("ordo.about.project")
 
-            Link("GitHub 项目", destination: projectURL)
-                .ordoGlassButton()
-                .padding(.top, 8)
-                .help(projectURL.absoluteString)
-                .accessibilityIdentifier("ordo.about.project")
-
-            Text("© 2026 voidGhost · MIT License")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text("© 2026 voidGhost · MIT License")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 212, height: 212)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(width: canvasSize.width, height: canvasSize.height)
+        .clipped()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ordo.page.about")
     }

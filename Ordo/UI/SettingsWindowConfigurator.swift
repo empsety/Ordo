@@ -146,7 +146,8 @@ final class MainWindowPresentation {
 
 @MainActor
 enum MainWindowBehavior {
-    static let contentSize = NSSize(width: 560, height: 476)
+    // 当前标准工具栏高 52 pt，内容与工具栏合计为 500 × 500 pt。
+    static let contentSize = NSSize(width: 500, height: 448)
 
     static func apply(to window: NSWindow) {
         window.collectionBehavior.subtract([.canJoinAllSpaces, .fullScreenPrimary, .fullScreenAuxiliary, .fullScreenAllowsTiling])
@@ -171,7 +172,7 @@ enum MainWindowBehavior {
         let fixedContent = NSSize(width: contentSize.width, height: contentSize.height + titlebarInset)
         window.contentMinSize = fixedContent
         window.contentMaxSize = fixedContent
-        // 同时覆盖旧版恢复的窗口尺寸；工具栏与标题栏不占用页面的 476 pt。
+        // 同时覆盖旧版恢复的窗口尺寸；工具栏与标题栏不占用页面的 448 pt。
         window.setContentSize(fixedContent)
         window.standardWindowButton(.zoomButton)?.isEnabled = false
     }
@@ -306,6 +307,13 @@ private final class MainWindowObserverView: NSView {
         guard let toolbar = window?.toolbar as? MainWindowToolbar else { return }
         toolbar.selectedPage = controller.mainWindowPage
         toolbar.onSelection = { [weak controller] page in controller?.mainWindowPage = page }
+        // SwiftUI 切换背景和工具栏外观后可能恢复标题，待本轮更新完成再同步原生约定。
+        Task { @MainActor [weak self] in
+            guard let window = self?.window else { return }
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+            window.titlebarSeparatorStyle = .none
+        }
     }
 
     override func viewDidMoveToWindow() {

@@ -40,6 +40,8 @@ struct ModifierChordPicker: View {
                 key(for: choice)
             }
         }
+        // 键帽区不随左侧标题伸缩，保证三行宽度和各列位置一致。
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     @ViewBuilder

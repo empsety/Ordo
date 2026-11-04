@@ -41,6 +41,8 @@ enum MainWindowLayoutAssertions {
     }
 
     static func assertPageFits(_ window: NSWindow, controller: AppController, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(window.frame.width, 500, accuracy: 0.5, file: file, line: line)
+        XCTAssertEqual(window.frame.height, 500, accuracy: 0.5, file: file, line: line)
         assertSingleHeader(window, file: file, line: line)
         guard let content = window.contentView else {
             XCTFail("主窗口缺少内容", file: file, line: line)
@@ -52,23 +54,25 @@ enum MainWindowLayoutAssertions {
             height: content.bounds.height - insets.top - insets.bottom
         )
         // 捕获 fullSizeContentView 被移除后，宿主仍占满标题栏却丢失安全区域的回归。
-        XCTAssertEqual(usableSize.width, 560, accuracy: 0.5, file: file, line: line)
-        XCTAssertEqual(usableSize.height, 476, accuracy: 0.5, file: file, line: line)
+        XCTAssertEqual(usableSize.width, 500, accuracy: 0.5, file: file, line: line)
+        XCTAssertEqual(usableSize.height, 448, accuracy: 0.5, file: file, line: line)
         XCTAssertFalse(containsScrollView(content), "固定页面不应包含滚动区域", file: file, line: line)
 
         let page: AnyView
         switch controller.mainWindowPage {
         case .basic: page = AnyView(BasicSettingsView(controller: controller))
         case .features: page = AnyView(FeatureSettingsView(controller: controller))
-        case .about: page = AnyView(AboutView())
+        case .about: page = AnyView(AboutSketchPage(angle: 0))
         }
-        // 不套用主窗口的固定高度，独立测量实际页面在 28 pt 边距内所需的最小高度。
-        let measurement = NSHostingView(rootView: page.frame(width: 504).fixedSize(horizontal: false, vertical: true))
+        // 关于页使用完整画布，其余页面在 28 pt 边距内测量最小高度。
+        let pageWidth: CGFloat = controller.mainWindowPage == .about ? 500 : 444
+        let pageHeight: CGFloat = controller.mainWindowPage == .about ? 448 : 392
+        let measurement = NSHostingView(rootView: page.frame(width: pageWidth).fixedSize(horizontal: false, vertical: true))
         let needed = measurement.fittingSize
         print("ORDO_LAYOUT page=\(controller.mainWindowPage.rawValue) granted=\(controller.accessibilityGranted) size=\(needed)")
         XCTAssertGreaterThan(needed.height, 0, file: file, line: line)
-        XCTAssertLessThanOrEqual(needed.height, 420, "页面需要 \(needed.height) pt，高于可用内容区域", file: file, line: line)
-        XCTAssertEqual(needed.width, 504, accuracy: 0.5, file: file, line: line)
+        XCTAssertLessThanOrEqual(needed.height, pageHeight, "页面需要 \(needed.height) pt，高于可用内容区域", file: file, line: line)
+        XCTAssertEqual(needed.width, pageWidth, accuracy: 0.5, file: file, line: line)
     }
 
     private static func containsScrollView(_ view: NSView) -> Bool {
@@ -78,6 +82,31 @@ enum MainWindowLayoutAssertions {
 
 @MainActor
 final class MainWindowLayoutTests: XCTestCase {
+    func testAboutCanvasExtendsBehindToolbarAndStaysCentered() async throws {
+        let fixture = LayoutFixture(granted: true, loginStatus: .notRegistered)
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            fixture.window.appearance = NSAppearance(named: appearance)
+            fixture.controller.mainWindowPage = .basic
+            try await Task.sleep(for: .milliseconds(50))
+            fixture.controller.mainWindowPage = .about
+            try await Task.sleep(for: .milliseconds(150))
+            let content = try XCTUnwrap(fixture.window.contentView)
+            content.layoutSubtreeIfNeeded()
+            func findCanvas(_ view: NSView) -> NSView? {
+                if view is AboutSketchWindowObserver.VisibilityView { return view }
+                return view.subviews.lazy.compactMap { findCanvas($0) }.first
+            }
+            let canvas = try XCTUnwrap(findCanvas(content))
+            let frame = canvas.convert(canvas.bounds, to: nil)
+            XCTAssertEqual(frame.width, fixture.window.frame.width, accuracy: 1)
+            XCTAssertEqual(frame.height, fixture.window.frame.height, accuracy: 1)
+            XCTAssertEqual(frame.midY, fixture.window.frame.height / 2, accuracy: 1)
+            MainWindowLayoutAssertions.assertSingleHeader(fixture.window)
+            try attach(fixture.window, name: "关于－延伸至工具栏－\(appearance.rawValue)")
+        }
+        await fixture.close()
+    }
+
     func testPermissionChangesPreserveFixedLayout() async throws {
         let fixture = LayoutFixture(granted: true, loginStatus: .notRegistered)
         fixture.controller.start()
@@ -89,10 +118,10 @@ final class MainWindowLayoutTests: XCTestCase {
             try await Task.sleep(for: .milliseconds(50))
             fixture.window.contentView?.layoutSubtreeIfNeeded()
             XCTAssertEqual(fixture.controller.accessibilityGranted, granted)
-            XCTAssertEqual(fixture.window.contentLayoutRect.size, NSSize(width: 560, height: 476))
+            XCTAssertEqual(fixture.window.contentLayoutRect.size, NSSize(width: 500, height: 448))
             let measurement = NSHostingView(rootView: FeatureSettingsView(controller: fixture.controller)
-                .frame(width: 504).fixedSize(horizontal: false, vertical: true))
-            XCTAssertLessThanOrEqual(measurement.fittingSize.height, 420)
+                .frame(width: 444).fixedSize(horizontal: false, vertical: true))
+            XCTAssertLessThanOrEqual(measurement.fittingSize.height, 392)
             if granted {
                 if let authorizedHeight {
                     XCTAssertEqual(measurement.fittingSize.height, authorizedHeight, accuracy: 0.5)
@@ -133,7 +162,7 @@ final class MainWindowLayoutTests: XCTestCase {
                 try await Task.sleep(for: .milliseconds(50))
                 window.contentView?.superview?.layoutSubtreeIfNeeded()
                 window.displayIfNeeded()
-                XCTAssertEqual(window.contentLayoutRect.size, NSSize(width: 560, height: 476))
+                XCTAssertEqual(window.contentLayoutRect.size, NSSize(width: 500, height: 448))
                 MainWindowLayoutAssertions.assertPageFits(window, controller: fixture.controller)
                 try attach(window, name: "\(name)－\(appearance.rawValue)")
                 await fixture.close()
@@ -141,15 +170,25 @@ final class MainWindowLayoutTests: XCTestCase {
         }
     }
 
-    func testListenerFailureRemainsReadable() async throws {
+    func testWarningsAndShortcutConflictsDoNotReserveNoticeSpace() async throws {
         let fixture = LayoutFixture(granted: true, loginStatus: .notRegistered, listenerFails: true)
         fixture.controller.start()
         fixture.controller.mainWindowPage = .features
         try await Task.sleep(for: .milliseconds(50))
         fixture.window.contentView?.superview?.layoutSubtreeIfNeeded()
         fixture.window.displayIfNeeded()
-        XCTAssertEqual(fixture.window.contentLayoutRect.size, NSSize(width: 560, height: 476))
+        XCTAssertEqual(fixture.window.contentLayoutRect.size, NSSize(width: 500, height: 448))
         XCTAssertNotNil(fixture.controller.statusMessage)
+        for conflict in [false, true] {
+            if conflict {
+                fixture.controller.resizeChord = fixture.controller.moveChord
+                XCTAssertNotNil(fixture.controller.shortcutValidationMessage)
+            }
+            let measurement = NSHostingView(rootView: FeatureSettingsView(controller: fixture.controller)
+                .frame(width: 444).fixedSize(horizontal: false, vertical: true))
+            // 内部仍保留错误和校验状态，页面不再为提示文字预留区域。
+            XCTAssertLessThanOrEqual(measurement.fittingSize.height, 303)
+        }
         MainWindowLayoutAssertions.assertPageFits(fixture.window, controller: fixture.controller)
         try attach(fixture.window, name: "功能－监听失败")
         await fixture.close()
@@ -195,7 +234,7 @@ private final class LayoutFixture {
             accessibilityTrust: { _ in trust.granted }
         )
         window = NSWindow(
-            contentRect: NSRect(x: 200, y: 200, width: 560, height: 476),
+            contentRect: NSRect(x: 200, y: 200, width: 500, height: 448),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered, defer: false
         )

@@ -12,7 +12,8 @@ final class MainWindowBehaviorTests: XCTestCase {
             defer: false
         )
         MainWindowBehavior.apply(to: window)
-        XCTAssertEqual(window.contentLayoutRect.size, NSSize(width: 560, height: 476))
+        XCTAssertEqual(window.frame.size, NSSize(width: 500, height: 500))
+        XCTAssertEqual(window.contentLayoutRect.size, NSSize(width: 500, height: 448))
         XCTAssertFalse(window.styleMask.contains(.resizable))
         XCTAssertTrue(window.collectionBehavior.contains(.fullScreenNone))
         XCTAssertEqual(window.contentMinSize, window.contentMaxSize)
@@ -348,7 +349,7 @@ final class MainWindowBehaviorTests: XCTestCase {
             .titled, .closable, .miniaturizable, .resizable, .fullSizeContentView,
         ]
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 680),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 680),
             styleMask: styleMask,
             backing: .buffered,
             defer: false
@@ -387,7 +388,7 @@ final class MainWindowBehaviorTests: XCTestCase {
 
     func testToolbarSelectionChangesPageAndRepeatedConfigurationPreservesIt() throws {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 680),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 680),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -419,7 +420,7 @@ final class MainWindowBehaviorTests: XCTestCase {
 
     func testPageControlSupportsKeyboardSelection() throws {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 476),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 448),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
