@@ -1,4 +1,6 @@
-# 本机验证记录 · 2026-11-05（v1.0.2 发布候选与公证）
+# 本机验证记录 · 2026-11-05（v1.0.2 发布与公证）
+
+**已发布**：北京时间 2026-11-05 00:35:06 公开 [Ordo 1.0.2](https://github.com/vo1dGhost/Ordo/releases/tag/v1.0.2)，标记为最新版；标签对应源码提交 `628bf1c592c11f8f2d36c3293826893f91aec3a4`。仅推送 `main` 与新标签 `v1.0.2`，保留所有旧标签与附件。GitHub 服务端附件 SHA-256 与下列候选一致；随后从 Chrome 的公开 Release 页面下载 DMG，文件与本地候选逐字节一致，保留来源为 Chrome 的 `com.apple.quarantine` 标记。下载映像完整性、映像内 App 全架构验签、公证票据和 Gatekeeper（`accepted / source=Notarized Developer ID`）回验均通过，检查后正常卸载；未安装或启动分发副本。证据在本轮目录的 `github-*.json` 和 `DMG/download-*`；补记前文档归档到 `build/DocumentArchive/20261105-Release102-Published/` 并核对 SHA-256。
 
 按用户“将当前最新的调整发布到 GitHub”的授权，将当前界面调整准备为 **1.0.2（构建号 3）**：整个窗口 500 × 500 pt、关于页九块磨砂构图及暂停恢复、功能页移除底部提示、三行键帽自然宽度对齐。Bundle ID、开发签名、手势、AX 和权限范围保持不变。
 
