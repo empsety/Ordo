@@ -13,3 +13,22 @@ xcuserdata/
 *.xcuserstate
 *.xccheckout
 *.xcscmblueprint
+
+# Ordo 官网源码与本地浏览器验收截图仅在本机保留
+/website/
+/output/playwright/ordo-website/
+
+# 仅在本机保留的协作约定、内部规划与验证记录
+/AGENTS.md
+/docs/BRANDING.md
+/docs/VALIDATION.md
+/Artwork/README.md
+
+# 仅在本机保留的旧设计素材与检查用预览
+/Artwork/AppIconConcepts/
+/Artwork/AppIconPreviews/
+/Artwork/AppIconSources/
+/Artwork/MenuBarIcon/
+/Artwork/OriginMarker/
+/Artwork/Demos/*.gif
+/Artwork/Demos/*.key

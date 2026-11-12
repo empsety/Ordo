@@ -43,13 +43,14 @@ private struct MainWindowScene: Scene {
 
 private struct MenuBarStatusLabel: View {
     @ObservedObject var controller: AppController
+    private var localization: AppLocalization { controller.localization }
 
     var body: some View {
         Label(
             "Ordo",
             image: controller.isOperational ? "MenuBarIconActive" : "MenuBarIconInactive"
         )
-        .accessibilityLabel(controller.isOperational ? "Ordo 正在运行" : "Ordo 未运行")
+        .accessibilityLabel(controller.isOperational ? localization.text("Ordo 正在运行") : localization.text("Ordo 未运行"))
     }
 }
 
@@ -106,6 +107,7 @@ final class OrdoAppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     func applicationDidBecomeActive(_ notification: Notification) {
         guard !ActivityLoggerFactory.isRunningTests else { return }
         AppController.shared.refreshLoginItemStatus()
+        AppController.shared.refreshLanguage()
         MainWindowPresentation.shared.applicationDidBecomeActive()
     }
 

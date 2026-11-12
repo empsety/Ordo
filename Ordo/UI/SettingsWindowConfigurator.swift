@@ -256,6 +256,19 @@ final class MainWindowToolbar: NSToolbar, NSToolbarDelegate {
         itemIdentifier == Self.pagesIdentifier ? pageItem : nil
     }
 
+    /// 原位刷新标题，保留原生焦点、分页选择和窗口身份。
+    func updateLocalization(_ localization: AppLocalization) {
+        for (index, page) in MainWindowPage.allCases.enumerated() {
+            pageControl.setLabel(localization.text(page.title), forSegment: index)
+            pageControl.setToolTip(localization.text(page.title), forSegment: index)
+        }
+        let title = localization.text("分页")
+        pageControl.setAccessibilityLabel(title)
+        pageItem.label = title
+        pageItem.paletteLabel = title
+        pageControl.sizeToFit()
+    }
+
     @objc private func selectPage(_ sender: NSSegmentedControl) {
         guard MainWindowPage.allCases.indices.contains(sender.selectedSegment) else { return }
         onSelection?(MainWindowPage.allCases[sender.selectedSegment])
@@ -305,6 +318,7 @@ private final class MainWindowObserverView: NSView {
 
     func updateSelection() {
         guard let toolbar = window?.toolbar as? MainWindowToolbar else { return }
+        toolbar.updateLocalization(controller.localization)
         toolbar.selectedPage = controller.mainWindowPage
         toolbar.onSelection = { [weak controller] page in controller?.mainWindowPage = page }
         // SwiftUI 切换背景和工具栏外观后可能恢复标题，待本轮更新完成再同步原生约定。

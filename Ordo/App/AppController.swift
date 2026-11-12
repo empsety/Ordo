@@ -32,7 +32,25 @@ final class AppController: ObservableObject {
     @Published private(set) var isSilentLaunchEnabled: Bool
     @Published var mainWindowPage: MainWindowPage = .basic
     @Published private(set) var loginItemStatus: SMAppService.Status
-    @Published private(set) var loginItemErrorMessage: String?
+    @Published private var loginItemErrorDetail: String?
+    @Published private(set) var language: AppLanguage
+    @Published private(set) var localization: AppLocalization
+
+    var loginItemErrorMessage: String? {
+        loginItemErrorDetail.map { localization.format("无法更新开机自启：%@", $0) }
+    }
+
+    func setLanguage(_ language: AppLanguage) {
+        guard self.language != language else { return }
+        self.language = language
+        defaults.set(language.rawValue, forKey: "ordo.language")
+        refreshLanguage()
+    }
+
+    func refreshLanguage() {
+        let updated = AppLocalization(language: language.resolved(preferredLanguages: preferredLanguages()))
+        if localization != updated { localization = updated }
+    }
 
     var isLaunchAtLoginEnabled: Bool {
         loginItemStatus == .enabled || loginItemStatus == .requiresApproval
@@ -57,7 +75,7 @@ final class AppController: ObservableObject {
 
     func refreshLoginItemStatus() {
         let status = loginItemManager.status
-        if status != loginItemStatus { loginItemErrorMessage = nil }
+        if status != loginItemStatus { loginItemErrorDetail = nil }
         loginItemStatus = status
     }
 
@@ -67,9 +85,9 @@ final class AppController: ObservableObject {
         guard enabled != isLaunchAtLoginEnabled else { return }
         do {
             try loginItemManager.setEnabled(enabled)
-            loginItemErrorMessage = nil
+            loginItemErrorDetail = nil
         } catch {
-            loginItemErrorMessage = "无法更新开机自启：\(error.localizedDescription)"
+            loginItemErrorDetail = error.localizedDescription
         }
         loginItemStatus = loginItemManager.status
     }
@@ -126,6 +144,7 @@ final class AppController: ObservableObject {
         defaults.set(enabled, forKey: PreferenceKey.snapAnimationEnabled)
     }
 
+    private let preferredLanguages: @MainActor () -> [String]
     private let defaults: UserDefaults
     private let windowController: any WindowControlling
     private let screenProvider: any ScreenGeometryProviding
@@ -152,6 +171,7 @@ final class AppController: ObservableObject {
         }
     )
 
+    private var languageTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var eventFailureTask: Task<Void, Never>?
     private var screenTask: Task<Void, Never>?
@@ -168,6 +188,7 @@ final class AppController: ObservableObject {
 
     init(
         defaults: UserDefaults = .standard,
+        preferredLanguages: @escaping @MainActor () -> [String] = { Locale.preferredLanguages },
         windowController: any WindowControlling = AXWindowController(),
         screenProvider: any ScreenGeometryProviding = ScreenGeometryProvider(),
         eventSource: any EventSource = InputEventTap(),
@@ -182,6 +203,10 @@ final class AppController: ObservableObject {
         }
     ) {
         self.defaults = defaults
+        self.preferredLanguages = preferredLanguages
+        let savedLanguage = AppLanguage(rawValue: defaults.string(forKey: "ordo.language") ?? "") ?? .system
+        language = savedLanguage
+        localization = AppLocalization(language: savedLanguage.resolved(preferredLanguages: preferredLanguages()))
         self.windowController = windowController
         self.screenProvider = screenProvider
         self.eventSource = eventSource
@@ -232,6 +257,13 @@ final class AppController: ObservableObject {
     func start() {
         guard !hasStarted, shutdownTask == nil else { return }
         hasStarted = true
+        refreshLanguage()
+        languageTask = Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(named: NSLocale.currentLocaleDidChangeNotification) {
+                guard !Task.isCancelled else { break }
+                self?.refreshLanguage()
+            }
+        }
 
         recordActivity(level: .info, category: .app, message: "Ordo 已启动")
 
@@ -324,6 +356,8 @@ final class AppController: ObservableObject {
     @discardableResult
     func shutdown() -> Task<Void, Never> {
         if let shutdownTask { return shutdownTask }
+        languageTask?.cancel()
+        languageTask = nil
         eventTask?.cancel()
         eventTask = nil
         eventFailureTask?.cancel()

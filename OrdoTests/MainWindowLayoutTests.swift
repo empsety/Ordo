@@ -67,7 +67,7 @@ enum MainWindowLayoutAssertions {
         // 关于页使用完整画布，其余页面在 28 pt 边距内测量最小高度。
         let pageWidth: CGFloat = controller.mainWindowPage == .about ? 500 : 444
         let pageHeight: CGFloat = controller.mainWindowPage == .about ? 448 : 392
-        let measurement = NSHostingView(rootView: page.frame(width: pageWidth).fixedSize(horizontal: false, vertical: true))
+        let measurement = NSHostingView(rootView: page.environment(\.ordoLocalization, controller.localization).frame(width: pageWidth).fixedSize(horizontal: false, vertical: true))
         let needed = measurement.fittingSize
         print("ORDO_LAYOUT page=\(controller.mainWindowPage.rawValue) granted=\(controller.accessibilityGranted) size=\(needed)")
         XCTAssertGreaterThan(needed.height, 0, file: file, line: line)
@@ -82,6 +82,43 @@ enum MainWindowLayoutAssertions {
 
 @MainActor
 final class MainWindowLayoutTests: XCTestCase {
+    func testFiveLanguagesFitAndRefreshExistingToolbar() async throws {
+        let scenarios: [(MainWindowPage, Bool, SMAppService.Status, Bool)] = [
+            (.basic, true, .notRegistered, false), (.basic, true, .requiresApproval, false),
+            (.basic, true, .notRegistered, true), (.features, false, .notRegistered, false),
+            (.features, true, .notRegistered, false), (.about, true, .notRegistered, false)
+        ]
+        for (page, granted, status, failure) in scenarios {
+            let fixture = LayoutFixture(granted: granted, loginStatus: status)
+            fixture.controller.start()
+            fixture.controller.mainWindowPage = page
+            if failure {
+                fixture.loginItems.shouldFail = true
+                fixture.controller.setLaunchAtLoginEnabled(true)
+            }
+            // 等待 SwiftUI 真正安装工具栏，避免并发构建时固定延迟不足。
+            for _ in 0..<100 {
+                if fixture.window.toolbar != nil { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            let toolbar = try XCTUnwrap(fixture.window.toolbar)
+            for language in AppLanguage.allCases where language != .system {
+                fixture.controller.setLanguage(language)
+                try await Task.sleep(for: .milliseconds(50))
+                fixture.window.contentView?.superview?.layoutSubtreeIfNeeded()
+                XCTAssertTrue(fixture.window.toolbar === toolbar)
+                XCTAssertEqual(fixture.controller.mainWindowPage, page)
+                let control = try XCTUnwrap(toolbar.items.first?.view as? NSSegmentedControl)
+                XCTAssertEqual(control.label(forSegment: 0), fixture.controller.localization.text("基础"))
+                MainWindowLayoutAssertions.assertPageFits(fixture.window, controller: fixture.controller)
+                if !granted || page == .basic && status == .requiresApproval {
+                    try attach(fixture.window, name: "Language-\(language.rawValue)-\(page.rawValue)")
+                }
+            }
+            await fixture.close()
+        }
+    }
+
     func testAboutCanvasExtendsBehindToolbarAndStaysCentered() async throws {
         let fixture = LayoutFixture(granted: true, loginStatus: .notRegistered)
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {

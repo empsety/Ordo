@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MenuBarContent: View {
     @ObservedObject var controller: AppController
+    private var localization: AppLocalization { controller.localization }
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -10,20 +11,20 @@ struct MenuBarContent: View {
             controller.markMainWindowPresented()
             MainWindowPresentation.open(using: openWindow)
         } label: {
-            Label("打开", systemImage: "macwindow")
+            Label(localization.text("打开"), systemImage: "macwindow")
                 .labelStyle(.titleAndIcon)
         }
-        .accessibilityLabel("打开")
-        .accessibilityHint("打开 Ordo 主界面")
+        .accessibilityLabel(localization.text("打开"))
+        .accessibilityHint(localization.text("打开 Ordo 主界面"))
 
         Divider()
 
         Button {
             NSApplication.shared.terminate(nil)
         } label: {
-            Label("退出", systemImage: "power")
+            Label(localization.text("退出"), systemImage: "power")
                 .labelStyle(.titleAndIcon)
         }
-        .accessibilityLabel("退出")
+        .accessibilityLabel(localization.text("退出"))
     }
 }

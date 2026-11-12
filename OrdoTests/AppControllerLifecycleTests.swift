@@ -489,6 +489,25 @@ final class AppControllerLifecycleTests: XCTestCase {
         cleanUp(controller)
     }
 
+    func testLanguageChangePreservesServicesAndRetranslatesExistingError() {
+        let loginItems = LifecycleLoginItems()
+        loginItems.failure = NSError(domain: "OrdoTests.Language", code: 1,
+                                     userInfo: [NSLocalizedDescriptionKey: "Test detail"])
+        let events = LifecycleEventSource()
+        let controller = makeController(eventSource: events, loginItemManager: loginItems)
+        controller.setLaunchAtLoginEnabled(true)
+        let changes = loginItems.changes
+        controller.mainWindowPage = .basic
+        controller.setLanguage(.english)
+        XCTAssertEqual(controller.loginItemErrorMessage, "Unable to update login item: Test detail")
+        controller.setLanguage(.japanese)
+        XCTAssertEqual(controller.loginItemErrorMessage, "ログイン項目を更新できません：Test detail")
+        XCTAssertEqual(loginItems.changes, changes)
+        XCTAssertEqual(controller.mainWindowPage, .basic)
+        XCTAssertFalse(events.isRunning)
+        cleanUp(controller)
+    }
+
     private func makeController(
         eventSource: LifecycleEventSource,
         windowController: LifecycleWindowController = LifecycleWindowController(),

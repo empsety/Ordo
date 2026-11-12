@@ -16,6 +16,7 @@ enum MainWindowPage: String, CaseIterable {
 
 struct MainView: View {
     @ObservedObject var controller: AppController
+    private var localization: AppLocalization { controller.localization }
 
     var body: some View {
         Group {
@@ -34,6 +35,8 @@ struct MainView: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .background(MainWindowConfigurator(controller: controller))
+        .environment(\.ordoLocalization, localization)
+        .environment(\.locale, Locale(identifier: localization.language.rawValue))
         .toolbarBackground(.hidden, for: .windowToolbar)
         .modifier(MainWindowTitleVisibility())
         .onAppear {
@@ -56,40 +59,69 @@ private struct MainWindowTitleVisibility: ViewModifier {
 
 struct BasicSettingsView: View {
     @ObservedObject var controller: AppController
+    private var localization: AppLocalization { controller.localization }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             SettingsCard {
-                SettingsRow(title: "开机自启") {
-                    Toggle("开机自启", isOn: Binding(
+                SettingsRow(title: localization.text("开机自启")) {
+                    Toggle(localization.text("开机自启"), isOn: Binding(
                         get: { controller.isLaunchAtLoginEnabled },
                         set: { controller.setLaunchAtLoginEnabled($0) }
                     ))
                     .labelsHidden()
                     .accessibilityIdentifier("ordo.launchAtLogin")
-                    .help("登录当前用户后在后台启动 Ordo")
+                    .help(localization.text("登录当前用户后在后台启动 Ordo"))
                 }
                 Divider()
-                SettingsRow(title: "显示菜单栏图标") {
-                    Toggle("显示菜单栏图标", isOn: Binding(
+                SettingsRow(title: localization.text("显示菜单栏图标")) {
+                    Toggle(localization.text("显示菜单栏图标"), isOn: Binding(
                         get: { controller.isMenuBarIconVisible },
                         set: { controller.setMenuBarIconVisible($0) }
                     ))
                     .labelsHidden()
                     .accessibilityIdentifier("ordo.menuBarIconVisible")
-                    .help("隐藏后，可通过 Finder 或 Spotlight 再次打开 Ordo 主窗口")
-                    .accessibilityHint("隐藏后，可通过 Finder 或 Spotlight 再次打开 Ordo 主窗口")
+                    .help(localization.text("隐藏后，可通过 Finder 或 Spotlight 再次打开 Ordo 主窗口"))
+                    .accessibilityHint(localization.text("隐藏后，可通过 Finder 或 Spotlight 再次打开 Ordo 主窗口"))
                 }
                 Divider()
-                SettingsRow(title: "静默启动") {
-                    Toggle("静默启动", isOn: Binding(
+                SettingsRow(title: localization.text("静默启动")) {
+                    Toggle(localization.text("静默启动"), isOn: Binding(
                         get: { controller.isSilentLaunchEnabled },
                         set: { controller.setSilentLaunchEnabled($0) }
                     ))
                     .labelsHidden()
                     .accessibilityIdentifier("ordo.silentLaunch")
-                    .help("启动时不显示主窗口；运行中再次打开 Ordo 仍会显示主窗口")
-                    .accessibilityHint("启动时不显示主窗口；运行中再次打开 Ordo 仍会显示主窗口")
+                    .help(localization.text("启动时不显示主窗口；运行中再次打开 Ordo 仍会显示主窗口"))
+                    .accessibilityHint(localization.text("启动时不显示主窗口；运行中再次打开 Ordo 仍会显示主窗口"))
+                }
+            }
+
+            SettingsCard {
+                SettingsRow(title: localization.text("语言")) {
+                    Menu {
+                        ForEach(AppLanguage.allCases, id: \.self) { language in
+                            Button {
+                                controller.setLanguage(language)
+                            } label: {
+                                let title = language == .system ? localization.text("跟随系统") : language.nativeName
+                                if controller.language == language {
+                                    Label(title, systemImage: "checkmark")
+                                } else {
+                                    Text(title)
+                                }
+                            }
+                        }
+                    } label: {
+                        Text("\(languageTitle) \(Image(systemName: "chevron.down"))")
+                            .foregroundStyle(.secondary)
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .accessibilityLabel(localization.text("语言"))
+                    .accessibilityValue(languageTitle)
+                    .accessibilityIdentifier("ordo.language")
                 }
             }
 
@@ -105,6 +137,10 @@ struct BasicSettingsView: View {
         .accessibilityIdentifier("ordo.page.basic")
     }
 
+    private var languageTitle: String {
+        controller.language == .system ? localization.text("跟随系统") : controller.language.nativeName
+    }
+
     @ViewBuilder
     private var loginItemNotice: some View {
         if let message = controller.loginItemErrorMessage {
@@ -114,11 +150,10 @@ struct BasicSettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("ordo.loginItemError")
         } else if controller.loginItemStatus == .requiresApproval {
-            HStack {
-                Label("开机自启等待批准", systemImage: "exclamationmark.circle")
+            VStack(alignment: .leading, spacing: 8) {
+                Label(localization.text("开机自启等待批准"), systemImage: "exclamationmark.circle")
                     .foregroundStyle(.orange)
-                Spacer()
-                Button("打开登录项设置") { controller.openLoginItemSettings() }
+                Button(localization.text("打开登录项设置")) { controller.openLoginItemSettings() }
                     .ordoGlassButton()
             }
             .accessibilityIdentifier("ordo.loginItemApproval")
@@ -128,22 +163,23 @@ struct BasicSettingsView: View {
 
 struct FeatureSettingsView: View {
     @ObservedObject var controller: AppController
+    private var localization: AppLocalization { controller.localization }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var keyFeedback = ModifierKeyFeedback()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             SettingsCard {
-                SettingsRow(title: "启用窗口管理") {
-                    Toggle("启用窗口管理", isOn: $controller.isEnabled)
+                SettingsRow(title: localization.text("启用窗口管理")) {
+                    Toggle(localization.text("启用窗口管理"), isOn: $controller.isEnabled)
                         .toggleStyle(.switch)
                         .labelsHidden()
                         .accessibilityIdentifier("ordo.enabled")
-                        .accessibilityHint("关闭后，Ordo 不再响应窗口手势")
+                        .accessibilityHint(localization.text("关闭后，Ordo 不再响应窗口手势"))
                 }
                 Divider()
-                SettingsRow(title: "排布动画") {
-                    Toggle("排布动画", isOn: Binding(
+                SettingsRow(title: localization.text("排布动画")) {
+                    Toggle(localization.text("排布动画"), isOn: Binding(
                         get: { controller.isSnapAnimationEnabled },
                         set: { controller.setSnapAnimationEnabled($0) }
                     ))
@@ -152,8 +188,8 @@ struct FeatureSettingsView: View {
                     .accessibilityIdentifier("ordo.snapAnimation")
                     .accessibilityHint(
                         reduceMotion
-                            ? "系统已开启减少动态效果，排布动画暂时停用"
-                            : "启用后，松开组合键时窗口平滑移动并调整到目标大小"
+                            ? localization.text("系统已开启减少动态效果，排布动画暂时停用")
+                            : localization.text("启用后，松开组合键时窗口平滑移动并调整到目标大小")
                     )
                 }
                 if !controller.accessibilityGranted {
@@ -167,7 +203,7 @@ struct FeatureSettingsView: View {
             }
             Spacer(minLength: 0)
 
-            Button("重置快捷键", role: .destructive) {
+            Button(localization.text("重置快捷键"), role: .destructive) {
                 controller.resetGestureSettingsToDefaults()
             }
             .buttonStyle(.borderless)
@@ -175,7 +211,7 @@ struct FeatureSettingsView: View {
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.horizontal, 14)
             .accessibilityIdentifier("ordo.resetGestureSettings")
-            .accessibilityHint("仅恢复三组默认快捷键")
+            .accessibilityHint(localization.text("仅恢复三组默认快捷键"))
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ordo.page.features")
@@ -206,11 +242,12 @@ struct AboutView: View {
 
 /// 静态构图与播放生命周期分离，便于固定角度的布局和主题验收。
 struct AboutSketchPage: View {
+    @Environment(\.ordoLocalization) private var localization
     let angle: Double
     var canvasSize = MainWindowBehavior.contentSize
     @Environment(\.colorScheme) private var colorScheme
     private let bundle = Bundle.main
-    private let projectURL = URL(string: "https://github.com/vo1dGhost/Ordo")!
+    private let projectURL = URL(string: "https://github.com/empsety/Ordo")!
 
     var body: some View {
         ZStack {
@@ -223,7 +260,7 @@ struct AboutSketchPage: View {
                     .accessibilityIdentifier("ordo.about.version")
 
                 Link(destination: projectURL) {
-                    Text("GitHub 项目")
+                    Text(localization.text("GitHub 项目"))
                         .foregroundStyle(colorScheme == .dark ? Color.white : Color.black)
                 }
                     .ordoGlassButton()
@@ -246,6 +283,6 @@ struct AboutSketchPage: View {
     private var versionText: String {
         let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
         let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
-        return "版本 \(version)（\(build)）"
+        return localization.format("版本 %@（%@）", version, build)
     }
 }

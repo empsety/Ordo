@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct SnapPreviewView: View {
+    @ObservedObject var controller: AppController = .shared
     let layout: SnapLayout
 
     var body: some View {
@@ -22,8 +23,8 @@ struct SnapPreviewView: View {
         .padding(6)
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("窗口排布预览")
-        .accessibilityValue(layout.accessibilityTitle)
+        .accessibilityLabel(controller.localization.text("窗口排布预览"))
+        .accessibilityValue(controller.localization.text(layout.accessibilityTitle))
     }
 }
 

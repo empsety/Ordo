@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ModifierChordPicker: View {
+    @Environment(\.ordoLocalization) private var localization
     let title: String
     let detail: String
     let identifier: String
@@ -10,10 +11,10 @@ struct ModifierChordPicker: View {
     private var choices: [ModifierChoice] {
         [
             // 对应键盘左下方的位置：Shift 在上方，其余三键从左到右排列。
-            ModifierChoice(id: "shift", symbol: "⇧", name: "Shift 键", chord: .shift),
-            ModifierChoice(id: "control", symbol: "⌃", name: "Control 键", chord: .control),
-            ModifierChoice(id: "option", symbol: "⌥", name: "Option 键", chord: .option),
-            ModifierChoice(id: "command", symbol: "⌘", name: "Command 键", chord: .command)
+            ModifierChoice(id: "shift", symbol: "⇧", name: localization.text("Shift 键"), chord: .shift),
+            ModifierChoice(id: "control", symbol: "⌃", name: localization.text("Control 键"), chord: .control),
+            ModifierChoice(id: "option", symbol: "⌥", name: localization.text("Option 键"), chord: .option),
+            ModifierChoice(id: "command", symbol: "⌘", name: localization.text("Command 键"), chord: .command)
         ]
     }
 
@@ -30,7 +31,7 @@ struct ModifierChordPicker: View {
         }
         .help(detail)
         .accessibilityElement(children: .contain)
-        .accessibilityValue("当前组合：\(selection.displayString)")
+        .accessibilityValue(localization.format("当前组合：%@", selection.displayString))
         .accessibilityHint(detail)
     }
 
@@ -47,7 +48,7 @@ struct ModifierChordPicker: View {
     @ViewBuilder
     private func key(for choice: ModifierChoice) -> some View {
         let state = ModifierKeyDisplayState(key: choice.chord, selection: selection, pressed: pressedModifiers)
-        let selectionValue = selection.contains(choice.chord) ? "已选择" : "未选择"
+        let selectionValue = selection.contains(choice.chord) ? localization.text("已选择") : localization.text("未选择")
         let toggle = Toggle(
             isOn: binding(for: choice.chord),
             label: {
@@ -59,9 +60,9 @@ struct ModifierChordPicker: View {
         .tint(state.tint)
         .controlSize(.regular)
         .help(choice.name)
-        .accessibilityLabel("\(title)：\(choice.name)")
-        .accessibilityHint(cannotRemove(choice.chord) ? "组合至少需要两个修饰键；请先添加其他键再取消此键" : "切换此修饰键")
-        .accessibilityValue(state == .pressed ? "已按下，\(selectionValue)" : selectionValue)
+        .accessibilityLabel(localization.format("%@：%@", title, choice.name))
+        .accessibilityHint(cannotRemove(choice.chord) ? localization.text("组合至少需要两个修饰键；请先添加其他键再取消此键") : localization.text("切换此修饰键"))
+        .accessibilityValue(state == .pressed ? localization.format("已按下，%@", selectionValue) : selectionValue)
         .accessibilityIdentifier("\(identifier).\(choice.id)")
         toggle.toggleStyle(ModifierKeyToggleStyle(state: state))
     }

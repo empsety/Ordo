@@ -141,7 +141,11 @@
 			developmentRegion = zh_Hans;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				zh_Hans,
+				"zh-Hans",
+				"zh-Hant",
+				en,
+				ja,
+				ko,
 				Base,
 			);
 			mainGroup = A00000000000000000000001;
