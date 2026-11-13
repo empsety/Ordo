@@ -268,7 +268,7 @@ struct AboutSketchPage: View {
                     .help(projectURL.absoluteString)
                     .accessibilityIdentifier("ordo.about.project")
 
-                Text("© 2026 voidGhost · MIT License")
+                Text("© 2026 empsety · MIT License")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

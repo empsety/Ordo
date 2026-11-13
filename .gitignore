@@ -32,3 +32,8 @@ xcuserdata/
 /Artwork/OriginMarker/
 /Artwork/Demos/*.gif
 /Artwork/Demos/*.key
+
+# 仅在本机保留的开发脚本与演示生成工具
+/scripts/
+/Artwork/Demos/demo-scene.mjs
+/Artwork/Demos/preview.html
